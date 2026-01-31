@@ -3,7 +3,7 @@
  * Accepts { message: string } and returns matching macros + suggested response.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { findMacroMatches, getSuggestedResponse, type Macro } from "./matcher";
+import { findMacroMatches, getSuggestedResponse, type Macro } from "./matcher.js";
 
 // Load macros - use require for reliable JSON loading in serverless
 // eslint-disable-next-line @typescript-eslint/no-require-imports
