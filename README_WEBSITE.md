@@ -13,9 +13,14 @@ Single-page UI for Macro Finder, matching the CS Updates Hub visual language (la
 
 2. **Start the dev server** (uses Vercel CLI to run both frontend and serverless API)
    ```bash
-   npm run dev
+   npx vercel dev
    ```
    Open the URL shown (e.g. http://localhost:3000). The Vercel dev server handles both the Vite frontend and the `/api/match` endpoint.
+   
+   Alternatively, for frontend-only development (no API):
+   ```bash
+   npm run dev
+   ```
 
 3. **Use the app**
    - Paste a patient message in the text area (remove identifying details).

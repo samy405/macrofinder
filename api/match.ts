@@ -3,10 +3,11 @@
  * Accepts { message: string } and returns matching macros + suggested response.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { findMacroMatches, getSuggestedResponse, type Macro } from "./matcher.js";
-import macrosData from "./macros.json";
+import { findMacroMatches, getSuggestedResponse, type Macro } from "./matcher";
 
-const macros: Macro[] = macrosData as Macro[];
+// Load macros - use require for reliable JSON loading in serverless
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const macros: Macro[] = require("./macros.json");
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   // CORS headers
