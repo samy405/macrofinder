@@ -2,6 +2,46 @@
 
 The matcher uses a **NO-API** intent engine: `normalize(message) → detect_intents(message) → score_macros(intents, message) → top 3 + confidence + rationale`.
 
+Intent categories are aligned with **Fountain Workflows** (billing, labs, scheduling, shipping, cancellation, refills, travel, plan change, receipt, referral, documents, resume, pharmacy other, assessment, etc.) so that patient messages return the correct macro even when phrased differently.
+
+---
+
+## Intent taxonomy (major patient question types)
+
+| Intent | Typical patient phrasing | Example macros |
+|--------|--------------------------|----------------|
+| **billing** | Charged, payment, invoice, what is this charge | Billing: Charge Alignment, Billing: Cancel Subscription |
+| **billing_charge_date** | When is my next charge, charge date | Billing: Charge Alignment for Orders |
+| **billing_refund** | Refund, money back | Billing: Cancelling a termed plan + processing a refund |
+| **receipt_itemized** | Receipt, itemized, FSA, HSA | Billing: Itemized Receipts, Billing: FSA/HSA cards |
+| **labs** | Lab work, blood work, need labs | Labs: …, LC: …, Quest: … |
+| **labs_scheduling** | Schedule labs, reschedule, link doesn’t work, Labcorp/Quest | LC: Visits are Booked Out, Lab Scheduling: I thought I booked |
+| **labs_results** | See my results, view results, portal | Akute: Sharing Lab Results |
+| **labs_bill** | Lab bill, charged for lab | LC: Bill Transfer, Quest: Bill Transfer |
+| **scheduling** | Schedule, appointment, book visit, reschedule | VV: …, Video Visit Scheduling |
+| **visit_required_before_refill** | Need visit to get refill, overdue for refill | VV: Visit required before refill 1–5 |
+| **shipping** | When will order ship, track order, delivery | Orders: Overnight Shipping, Curexa: Delayed |
+| **shipping_address** | Wrong address, address in wrong | LC: Wrong Zip Code, address-change macros |
+| **expedite_order** | Expedite, rush, overnight, delayed | Curexa: Delayed need to expedite, Orders: Overnight Shipping |
+| **replacement** | Replacement, lost order, never received | Orders: Processing Replacement |
+| **out_of_state_travel** | Traveling, out of state, Hawaii, extra meds for travel | LC - Traveling, General CS: Extra medication for travel |
+| **cancellation_pause** | Cancel, pause, stop subscription | Billing: Cancel Subscription, Pause Confirmation |
+| **resume_treatment** | Resume later, come back, restart | Cancel Subscription: Resume Treatment at a Later Date |
+| **plan_change** | Switch plan, change subscription plan, different plan | Billing: Charge Alignment, Subscription fees for TRT/HRT |
+| **pharmacy_other** | Order filled by another pharmacy, other pharmacy | If a patient had an order processed by another pharmacy recently |
+| **referral** | Referral link, referred by friend, $100 credit | Promotion: TRT/HRT Patient Referral |
+| **documents** | Send docs, fax, upload documents | Sending docs, Faxing Docs |
+| **update_phone** | Update phone number | General CS: Update Phone Number |
+| **provider_specific** | See specific provider, same doctor | VV: Request for a specific provider |
+| **assessment_registration** | Assessment, sign up, see results, registration | Unregistered Patient: …, General CS: TRT Registration Link |
+| **intermingled_profiles** | Wrong profile, family member same email | Intermingled Profiles |
+| **prescription_local_pharmacy** | Send script to local pharmacy, fill at CVS | Orders: Can the prescription be sent to a local pharmacy? |
+| **wrong_charge_not_us** | Charge doesn’t come up, not our charge | Unknown SMS: Sender thinks we charged them |
+| **contract_policy** | Contract, cancellation policy, refund policy | General CS: Is there a contract?, Refunds: Terms for Longer Term Plans |
+| **qualify_treatment** | Do I qualify, eligible | General CS: Do I qualify for TRT treatment? |
+| **in_person_appointments** | In-person appointment, do you do in-person | Unknown SMS: Do you do in-person appointments? |
+| **scam_legit** | Scam, legit, legitimate | General CS: Is your program a scam? |
+
 ---
 
 ## How to add new intents

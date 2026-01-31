@@ -144,6 +144,51 @@ describe("Intent-based matching", () => {
     }
   });
 
+  it('"Can I switch to a different subscription plan?" -> plan options / pricing macros (not pharmacy, pause, or TRT qualify)', () => {
+    const query = "Can I switch to a different subscription plan?";
+    const result = intentMatch(query, macros, 3);
+
+    expect(result.mode).toBe("intent");
+    expect(result.primaryIntent).toBe("plan_change");
+    expect(result.matches.length).toBeGreaterThan(0);
+
+    const topTitles = result.matches.slice(0, 3).map((m) => m.macro.title.toLowerCase());
+    const hasPlanPricing = topTitles.some((t) =>
+      /charge\s+alignment|subscription\s+fees|pricing\s+plans|pricing|plan/.test(t)
+    );
+    expect(hasPlanPricing).toBe(true);
+    // Should NOT rank pharmacy order, pause, or TRT qualify as top
+    const badTitles = ["if a patient had an order processed by another pharmacy", "pause confirmation", "do i qualify for trt"];
+    for (const bad of badTitles) {
+      expect(topTitles[0]).not.toContain(bad.replace(/\s+/g, " "));
+    }
+  });
+
+  it('"I need an itemized receipt for FSA" -> receipt/itemized macro', () => {
+    const query = "I need an itemized receipt for FSA";
+    const result = intentMatch(query, macros, 3);
+    expect(result.primaryIntent).toBe("receipt_itemized");
+    expect(result.matches.length).toBeGreaterThan(0);
+    const top = result.matches[0].macro.title.toLowerCase();
+    expect(top).toMatch(/receipt|itemized|fsa|hsa|itemize/);
+  });
+
+  it('"I want to resume treatment later" -> resume treatment macro', () => {
+    const query = "I want to resume treatment later";
+    const result = intentMatch(query, macros, 3);
+    expect(result.primaryIntent).toBe("resume_treatment");
+    const topTitles = result.matches.slice(0, 3).map((m) => m.macro.title.toLowerCase());
+    expect(topTitles.some((t) => /resume|later\s+date/.test(t))).toBe(true);
+  });
+
+  it('"I got a letter saying my prescription was filled by another pharmacy" -> pharmacy other macro', () => {
+    const query = "I got a letter saying my prescription was filled by another pharmacy";
+    const result = intentMatch(query, macros, 3);
+    expect(result.primaryIntent).toBe("pharmacy_other");
+    const top = result.matches[0].macro.title.toLowerCase();
+    expect(top).toMatch(/another\s+pharmacy|order\s+processed/);
+  });
+
   it("Completes quickly (no network)", () => {
     const query = "How do I cancel my subscription?";
     const start = Date.now();
