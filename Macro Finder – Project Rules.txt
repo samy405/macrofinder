@@ -1,0 +1,49 @@
+Macro Finder – Project Rules
+
+This project scans a Word document called Fountain Workflows.
+
+The document contains a mix of:
+
+Explanations
+
+Workflow steps
+
+Notes
+
+Macros
+
+Only macros should be extracted and used for matching.
+
+What qualifies as a macro
+
+A macro is any block of text that is clearly intended to be sent directly to a patient.
+Macros are usually introduced by phrases such as:
+
+“Please use the following macro”
+
+“Send the following macro”
+
+“Use this macro”
+
+A labeled macro title followed by patient-facing text
+
+Macros may not always follow the same wording, so the system should also rely on context and intent, not just exact phrases.
+
+What should be ignored
+
+Dates used as internal references
+
+Instructions to staff
+
+Workflow explanations
+
+Notes or comments not intended to be sent to patients
+
+Handling inconsistencies
+
+Some macros in the Word document may include only a macro title without a full patient-facing message.
+If a macro title is clearly identified but no complete patient-facing content follows it, the macro should still be included with:
+- The macro title
+- An empty or placeholder macro text (e.g., "[Title only]")
+
+Do not attempt to infer, generate, or expand the macro content beyond what is explicitly written.
