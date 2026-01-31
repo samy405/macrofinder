@@ -234,195 +234,324 @@ function getRelevanceScore(patientMessage: string, macro: Macro): { score: numbe
   const msgClean = patientMessage.toLowerCase().replace(/\s+/g, " ");
   const titleClean = macro.title.toLowerCase();
   const textClean = !isTitleOnly(macro) ? macro.text.toLowerCase() : "";
+  const fullContent = titleClean + " " + textClean;
 
   const intent = getIntent(msgClean);
   const msgKeywords = getKeywords(msgClean);
   const titleKeywords = getKeywords(titleClean);
   const textKeywords = textClean ? getKeywords(textClean) : [];
 
-  // 1. Intent matching
-  const intentType = intent.type;
-  if (intentType !== "general") {
-    if (titleClean.includes(intentType) || textClean.includes(intentType)) {
-      score += 3.0;
-      reasons.push(`Intent match: ${intentType}`);
-    }
-
-    // Specific intent mappings
-    switch (intentType) {
-      case "cancellation":
-        if (/cancel|subscription/i.test(titleClean)) {
-          score += 2.0;
-          reasons.push("Cancellation intent");
-        }
-        break;
-      case "billing":
-        if (/billing|payment|charge|refund/i.test(titleClean)) {
-          score += 2.0;
-          reasons.push("Billing intent");
-        }
-        break;
-      case "labs":
-        if (/lab|labcorp|quest|blood/i.test(titleClean)) {
-          score += 2.0;
-          reasons.push("Labs intent");
-        }
-        break;
-      case "orders":
-        if (/order|shipping|delivery/i.test(titleClean)) {
-          score += 2.0;
-          reasons.push("Orders intent");
-        }
-        break;
-      case "video_visit":
-        if (/vv|visit|appointment|provider/i.test(titleClean)) {
-          score += 2.0;
-          reasons.push("Video visit intent");
-        }
-        break;
-      case "medication":
-        if (/medication|prescription|refill|dose/i.test(titleClean)) {
-          score += 2.0;
-          reasons.push("Medication intent");
-        }
-        break;
-      case "pricing":
-        if (/pricing|price|cost/i.test(titleClean)) {
-          score += 2.0;
-          reasons.push("Pricing intent");
-        }
-        break;
-      case "discount":
-        if (/discount|promotion|price\s?objection|promo\s?code|veteran/i.test(titleClean)) {
-          score += 2.0;
-          reasons.push("Discount/promotion intent");
-        }
-        break;
-      case "replacement":
-        if (/replacement|processing\s?replacement|order/i.test(titleClean)) {
-          score += 2.0;
-          reasons.push("Replacement intent");
-        }
-        break;
-    }
-  }
-
-  // 1b. Scenario-based boosts
-  // Distinguish between "charge date" questions and "refill date" questions
-  const asksAboutCharge = /charge\s*date|next\s*charge|when\s*.*charge|billing\s*date/i.test(msgClean);
+  // ===========================================================================
+  // SCENARIO DETECTION (what is the user asking about?)
+  // ===========================================================================
+  const asksAboutCharge = /charge\s*date|next\s*charge|when\s*.*charge|billing\s*date|when\s*am\s*i\s*charged/i.test(msgClean);
   const asksAboutRefill = /refill\s*date|next\s*refill|when\s*.*refill/i.test(msgClean);
-  
-  if (intent.billingCycleQuestion || intent.billingCycleConfusion) {
-    // Only boost charge-related macros for charge questions (NOT refill macros)
-    if (/charge\s?alignment/i.test(titleClean) ||
-        /charge\s?date|recurring|billing\s?cycle|timing\s?of\s?your\s?payments/i.test(textClean)) {
-      score += 4.0;
-      reasons.push("Billing cycle / charge date scenario");
-    }
-    if (/billing/i.test(titleClean) && (/charge|payment|recur/i.test(textClean) || /charge/i.test(titleClean))) {
-      score += 1.5;
-      reasons.push("Billing macro for charge question");
-    }
-  }
-  
-  // Penalize "refill" macros when user is asking about "charge" dates (they're different concepts)
+  const asksAboutInsurance = /insurance|do\s*you\s*accept|covered\s*by/i.test(msgClean);
+  const asksAboutCancel = /cancel|cancellation|stop\s*my|end\s*my/i.test(msgClean);
+  const asksAboutDiscount = intent.discountQuestion;
+  const asksAboutReplacement = intent.replacementScenario;
+  const asksAboutLabs = /lab|blood\s*work|results|bloodwork/i.test(msgClean);
+  const asksAboutLabBill = asksAboutLabs && /bill|charged|invoice/i.test(msgClean);
+  const asksAboutTracking = /track|where\s*is|shipping\s*status|order\s*status/i.test(msgClean);
+  const asksAboutNeedles = /needle|syringe|ran\s*out\s*of\s*needles/i.test(msgClean);
+  const asksAboutPricing = /how\s*much|pricing|price|cost|fee/i.test(msgClean);
+  const asksAboutRefund = /refund|money\s*back|reimburse/i.test(msgClean);
+  const asksAboutReceipt = /receipt|itemized/i.test(msgClean);
+  const asksAboutFSA = /fsa|hsa/i.test(msgClean);
+  const asksAboutSchedule = /schedule|appointment|book|video\s*visit/i.test(msgClean);
+  const asksAboutPrescription = /prescribe|prescription|can\s*you\s*prescribe|do\s*you\s*prescribe/i.test(msgClean);
+  const mentionsTRT = /trt|testosterone/i.test(msgClean);
+  const mentionsHRT = /hrt|hormone\s*replacement|menopause|estrogen|progesterone/i.test(msgClean);
+  const mentionsGLP = /glp|weight\s*loss|semaglutide|tirzepatide|ozempic/i.test(msgClean);
+  const asksAboutTravel = /travel|traveling|trip/i.test(msgClean);
+
+  // ===========================================================================
+  // PRECISE SCENARIO BOOSTS (high weight for exact matches)
+  // ===========================================================================
+
+  // --- CHARGE DATE QUESTIONS ---
   if (asksAboutCharge && !asksAboutRefill) {
-    if (/refill\s?date|next\s?refill/i.test(titleClean) && !/charge/i.test(titleClean)) {
-      score -= 3.0;
-      reasons.push("Refill macro penalized for charge question (different concepts)");
+    if (/charge\s*alignment/i.test(titleClean)) {
+      score += 10.0;
+      reasons.push("Charge Alignment macro (exact match for charge date)");
     }
+    // Penalize everything unrelated
+    if (/insurance/i.test(titleClean)) { score -= 8.0; reasons.push("Insurance irrelevant to charge date"); }
+    if (/refill\s*date|next\s*refill/i.test(titleClean) && !/charge/i.test(titleClean)) { score -= 6.0; reasons.push("Refill != charge date"); }
+    if (/cancel/i.test(titleClean)) { score -= 5.0; reasons.push("Cancel irrelevant to charge date"); }
+    if (/refund/i.test(titleClean)) { score -= 4.0; reasons.push("Refund irrelevant to charge date"); }
+    if (/receipt|itemized/i.test(titleClean)) { score -= 4.0; reasons.push("Receipt irrelevant to charge date"); }
   }
-  if (intent.discountQuestion) {
-    if (/no\s?discount|price\s?objection|discount|promo\s?code|veteran/i.test(titleClean)) {
-      score += 3.5;
-      reasons.push("Discount/promotion scenario");
+
+  // --- INSURANCE QUESTIONS ---
+  if (asksAboutInsurance) {
+    if (/insurance/i.test(titleClean)) {
+      score += 10.0;
+      reasons.push("Insurance macro (exact match)");
     }
-    if (/payment\s?plan/i.test(titleClean) && /discount/i.test(msgClean)) {
-      score += 1.0;
-      reasons.push("Payment/discount related");
-    }
+    // Penalize unrelated billing macros
+    if (/charge\s*alignment|charge\s*date/i.test(titleClean)) { score -= 5.0; reasons.push("Charge date irrelevant to insurance"); }
+    if (/cancel/i.test(titleClean)) { score -= 4.0; reasons.push("Cancel irrelevant to insurance"); }
   }
-  if (intent.replacementScenario) {
-    if (/processing\s?replacement|replacement/i.test(titleClean)) {
+
+  // --- CANCELLATION QUESTIONS ---
+  if (asksAboutCancel) {
+    if (/cancel/i.test(titleClean)) {
+      score += 8.0;
+      reasons.push("Cancel macro (exact match)");
+    }
+    // Penalize unrelated
+    if (/insurance/i.test(titleClean)) { score -= 6.0; reasons.push("Insurance irrelevant to cancel"); }
+    if (/charge\s*alignment/i.test(titleClean)) { score -= 5.0; reasons.push("Charge alignment irrelevant to cancel"); }
+  }
+
+  // --- DISCOUNT QUESTIONS ---
+  if (asksAboutDiscount) {
+    if (/no\s*discount|promotion.*no|veteran.*discount/i.test(titleClean)) {
+      score += 10.0;
+      reasons.push("No discount macro (exact match)");
+    } else if (/discount|promo|promotion|price\s*objection/i.test(titleClean)) {
+      score += 8.0;
+      reasons.push("Discount/promo macro");
+    }
+    // Penalize unrelated
+    if (/insurance/i.test(titleClean)) { score -= 6.0; reasons.push("Insurance irrelevant to discount"); }
+    if (/cancel/i.test(titleClean)) { score -= 5.0; reasons.push("Cancel irrelevant to discount"); }
+    if (/charge\s*alignment/i.test(titleClean)) { score -= 4.0; reasons.push("Charge alignment irrelevant to discount"); }
+    if (/refill\s*date/i.test(titleClean)) { score -= 4.0; reasons.push("Refill date irrelevant to discount"); }
+  }
+
+  // --- REPLACEMENT / LOST MEDICATION ---
+  if (asksAboutReplacement) {
+    if (/processing\s*replacement/i.test(titleClean)) {
+      score += 10.0;
+      reasons.push("Processing Replacement macro (exact match)");
+    } else if (/replacement/i.test(titleClean)) {
+      score += 7.0;
+      reasons.push("Replacement macro");
+    }
+    if (asksAboutTravel && /travel|extra\s*med/i.test(titleClean)) {
+      score += 6.0;
+      reasons.push("Travel + replacement scenario");
+    }
+    // Penalize unrelated
+    if (/insurance/i.test(titleClean)) { score -= 6.0; reasons.push("Insurance irrelevant to replacement"); }
+    if (/cancel/i.test(titleClean)) { score -= 5.0; reasons.push("Cancel irrelevant to replacement"); }
+    if (/discount/i.test(titleClean)) { score -= 4.0; reasons.push("Discount irrelevant to replacement"); }
+  }
+
+  // --- LAB RESULTS QUESTIONS ---
+  if (asksAboutLabs && !asksAboutLabBill) {
+    if (/lab\s*results|sharing\s*lab/i.test(titleClean)) {
+      score += 8.0;
+      reasons.push("Lab results macro");
+    } else if (/akute/i.test(titleClean) && /lab|results|portal/i.test(fullContent)) {
+      score += 7.0;
+      reasons.push("Akute portal (for lab results)");
+    } else if (/labs?:/i.test(titleClean)) {
       score += 4.0;
-      reasons.push("Replacement scenario (lost order/medication)");
+      reasons.push("Labs macro");
     }
-    if (/extra\s?medication|travel/i.test(titleClean) && /travel/i.test(msgClean)) {
-      score += 2.5;
-      reasons.push("Travel + medication scenario");
+    // Penalize unrelated
+    if (/insurance/i.test(titleClean)) { score -= 5.0; reasons.push("Insurance irrelevant to labs"); }
+    if (/cancel/i.test(titleClean)) { score -= 5.0; reasons.push("Cancel irrelevant to labs"); }
+    if (/discount/i.test(titleClean)) { score -= 4.0; reasons.push("Discount irrelevant to labs"); }
+  }
+
+  // --- LAB BILL QUESTIONS ---
+  if (asksAboutLabBill) {
+    if (/lc:.*bill|quest:.*bill|lab.*bill/i.test(titleClean)) {
+      score += 10.0;
+      reasons.push("Lab bill macro (exact match)");
     }
   }
 
-  // 1c. Targeted phrase boosts
-  if (/receipt/i.test(msgClean) && !/itemized/i.test(msgClean)) {
-    if (/receipt/i.test(titleClean)) {
-      score += 2.0;
-      reasons.push("Receipt request");
-    }
-  }
-  if (/itemized/i.test(msgClean)) {
-    if (/itemized/i.test(titleClean)) {
-      score += 3.0;
-      reasons.push("Itemized receipt request");
-    }
-  }
-  if (/refund/i.test(msgClean)) {
+  // --- REFUND QUESTIONS ---
+  if (asksAboutRefund && !asksAboutDiscount) {
     if (/refund/i.test(titleClean)) {
-      score += 2.0;
-      reasons.push("Refund request");
+      score += 10.0;
+      reasons.push("Refund macro (exact match)");
     }
+    // Penalize unrelated
+    if (/insurance/i.test(titleClean)) { score -= 5.0; reasons.push("Insurance irrelevant to refund"); }
+    if (/charge\s*alignment/i.test(titleClean)) { score -= 5.0; reasons.push("Charge alignment irrelevant to refund"); }
+    if (/discount/i.test(titleClean)) { score -= 4.0; reasons.push("Discount irrelevant to refund"); }
   }
-  if (/fsa|hsa/i.test(msgClean)) {
+
+  // --- RECEIPT QUESTIONS ---
+  if (asksAboutReceipt) {
+    if (/itemized/i.test(msgClean) && /itemized/i.test(titleClean)) {
+      score += 10.0;
+      reasons.push("Itemized receipt macro (exact match)");
+    } else if (/receipt/i.test(titleClean)) {
+      score += 8.0;
+      reasons.push("Receipt macro");
+    }
+    // Penalize unrelated
+    if (/insurance/i.test(titleClean)) { score -= 5.0; reasons.push("Insurance irrelevant to receipt"); }
+    if (/cancel/i.test(titleClean)) { score -= 5.0; reasons.push("Cancel irrelevant to receipt"); }
+  }
+
+  // --- FSA/HSA QUESTIONS ---
+  if (asksAboutFSA) {
     if (/fsa|hsa/i.test(titleClean)) {
-      score += 2.5;
-      reasons.push("FSA/HSA request");
+      score += 10.0;
+      reasons.push("FSA/HSA macro (exact match)");
     }
   }
 
-  // 2. Topic matching
+  // --- NEEDLES/SYRINGES QUESTIONS ---
+  if (asksAboutNeedles) {
+    if (/needle|syringe/i.test(titleClean)) {
+      score += 10.0;
+      reasons.push("Needles/syringes macro (exact match)");
+    }
+    // Penalize unrelated
+    if (/insurance/i.test(titleClean)) { score -= 6.0; reasons.push("Insurance irrelevant to needles"); }
+    if (/cancel/i.test(titleClean)) { score -= 5.0; reasons.push("Cancel irrelevant to needles"); }
+  }
+
+  // --- PRICING QUESTIONS ---
+  if (asksAboutPricing && !asksAboutDiscount && !asksAboutCharge) {
+    if (/pricing/i.test(titleClean)) {
+      score += 8.0;
+      reasons.push("Pricing macro");
+    }
+    if (mentionsTRT && /trt.*pricing|trt.*price/i.test(fullContent)) {
+      score += 6.0;
+      reasons.push("TRT pricing");
+    }
+    if (mentionsHRT && /hrt.*pricing|hrt.*price/i.test(fullContent)) {
+      score += 6.0;
+      reasons.push("HRT pricing");
+    }
+    if (mentionsGLP && /glp.*pricing|glp.*price/i.test(fullContent)) {
+      score += 6.0;
+      reasons.push("GLP pricing");
+    }
+  }
+
+  // --- VIDEO VISIT / SCHEDULING ---
+  if (asksAboutSchedule) {
+    if (/vv:|video\s*visit|schedule.*visit|appointment/i.test(titleClean)) {
+      score += 7.0;
+      reasons.push("Video visit/scheduling macro");
+    }
+    // Penalize unrelated
+    if (/insurance/i.test(titleClean)) { score -= 5.0; reasons.push("Insurance irrelevant to scheduling"); }
+    if (/billing/i.test(titleClean) && !/visit/i.test(titleClean)) { score -= 4.0; reasons.push("Billing irrelevant to scheduling"); }
+  }
+
+  // --- PRESCRIPTION QUESTIONS ---
+  if (asksAboutPrescription) {
+    if (/prescribe/i.test(titleClean)) {
+      score += 8.0;
+      reasons.push("Prescription macro");
+    }
+    // TRT-specific prescriptions
+    if (mentionsTRT && /trt|testosterone/i.test(fullContent)) {
+      score += 3.0;
+      reasons.push("TRT prescription context");
+    }
+    // HRT-specific
+    if (mentionsHRT && /hrt|hormone|estradiol|progesterone/i.test(fullContent)) {
+      score += 3.0;
+      reasons.push("HRT prescription context");
+    }
+  }
+
+  // --- ORDER TRACKING ---
+  if (asksAboutTracking && !asksAboutReplacement) {
+    if (/track|shipping|order\s*status|where.*order/i.test(titleClean)) {
+      score += 8.0;
+      reasons.push("Order tracking macro");
+    }
+    // Penalize unrelated
+    if (/insurance/i.test(titleClean)) { score -= 5.0; reasons.push("Insurance irrelevant to tracking"); }
+    if (/cancel/i.test(titleClean)) { score -= 5.0; reasons.push("Cancel irrelevant to tracking"); }
+  }
+
+  // ===========================================================================
+  // PROGRAM-SPECIFIC MATCHING (TRT vs HRT vs GLP)
+  // ===========================================================================
+  if (mentionsTRT && !mentionsHRT && !mentionsGLP) {
+    if (/hrt/i.test(titleClean) && !/trt/i.test(titleClean)) {
+      score -= 3.0;
+      reasons.push("HRT macro penalized (user asks about TRT)");
+    }
+    if (/glp/i.test(titleClean)) {
+      score -= 3.0;
+      reasons.push("GLP macro penalized (user asks about TRT)");
+    }
+  }
+  if (mentionsHRT && !mentionsTRT && !mentionsGLP) {
+    if (/trt/i.test(titleClean) && !/hrt/i.test(titleClean)) {
+      score -= 3.0;
+      reasons.push("TRT macro penalized (user asks about HRT)");
+    }
+    if (/glp/i.test(titleClean)) {
+      score -= 3.0;
+      reasons.push("GLP macro penalized (user asks about HRT)");
+    }
+  }
+  if (mentionsGLP && !mentionsTRT && !mentionsHRT) {
+    if (/trt/i.test(titleClean) && !/glp|weight/i.test(titleClean)) {
+      score -= 3.0;
+      reasons.push("TRT macro penalized (user asks about GLP)");
+    }
+    if (/hrt/i.test(titleClean) && !/glp|weight/i.test(titleClean)) {
+      score -= 3.0;
+      reasons.push("HRT macro penalized (user asks about GLP)");
+    }
+  }
+
+  // ===========================================================================
+  // TOPIC MATCHING (for detected topics like labcorp, quest, etc.)
+  // ===========================================================================
   for (const topic of intent.topics) {
     if (titleClean.includes(topic) || textClean.includes(topic)) {
-      score += 1.5;
-      reasons.push(`Topic: ${topic}`);
+      score += 2.0;
+      reasons.push(`Topic match: ${topic}`);
     }
   }
 
-  // 3. Keyword overlap in title
+  // ===========================================================================
+  // KEYWORD OVERLAP (very low weight to prevent false positives)
+  // ===========================================================================
   const titleOverlap = msgKeywords.filter((k) => titleKeywords.includes(k));
   if (titleOverlap.length > 0) {
-    score += titleOverlap.length * 1.0;
+    score += titleOverlap.length * 0.4;
     reasons.push(`Title keywords: ${titleOverlap.slice(0, 3).join(", ")}`);
   }
 
-  // 4. Keyword overlap in text
   if (!isTitleOnly(macro)) {
     const textOverlap = msgKeywords.filter((k) => textKeywords.includes(k));
     if (textOverlap.length > 0) {
-      score += textOverlap.length * 0.5;
+      score += textOverlap.length * 0.2;
       reasons.push(`Text keywords: ${textOverlap.slice(0, 3).join(", ")}`);
     }
   }
 
-  // 5. Direct phrase matching
+  // ===========================================================================
+  // DIRECT PHRASE MATCHING (reduced weight)
+  // ===========================================================================
   const msgWords = msgClean.split(/\s+/);
   for (let i = 0; i < msgWords.length - 1; i++) {
     const phrase = `${msgWords[i]} ${msgWords[i + 1]}`;
-    if (phrase.length > 5) {
+    if (phrase.length > 6) {
       const escaped = escapeRegex(phrase);
       if (new RegExp(escaped, "i").test(titleClean)) {
-        score += 2.5;
-        reasons.push(`Direct phrase: '${phrase}'`);
-      }
-      if (!isTitleOnly(macro) && new RegExp(escaped, "i").test(textClean)) {
         score += 1.5;
-        reasons.push(`Direct phrase in text: '${phrase}'`);
+        reasons.push(`Direct phrase: '${phrase}'`);
       }
     }
   }
 
-  // 6. Penalty for title-only macros
+  // ===========================================================================
+  // TITLE-ONLY PENALTY
+  // ===========================================================================
   if (isTitleOnly(macro)) {
-    score *= 0.7;
+    score *= 0.6;
     reasons.push("Title-only macro (reduced score)");
   }
 
@@ -445,7 +574,9 @@ export function findMacroMatches(patientMessage: string, macros: Macro[], topN =
   matches.sort((a, b) => b.score - a.score);
 
   // Filter by minimum threshold and return top N
-  const minScore = 1.0;
+  // With the new precise scoring, exact matches get 8-10 points
+  // Filter out anything below 3.0 to remove weak/spurious matches
+  const minScore = 3.0;
   return matches.filter((m) => m.score >= minScore).slice(0, topN);
 }
 
