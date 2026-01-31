@@ -3,18 +3,8 @@
  * Accepts { message: string } and returns matching macros + suggested response.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { readFileSync } from "fs";
-import { join } from "path";
-import { findMacroMatches, getSuggestedResponse, type Macro } from "./matcher.js";
-
-// Load macros at cold start using fs (reliable in Vercel serverless)
-let macros: Macro[] = [];
-try {
-  const macrosPath = join(__dirname, "macros.json");
-  macros = JSON.parse(readFileSync(macrosPath, "utf8"));
-} catch (e) {
-  console.error("Failed to load macros:", e);
-}
+import { findMacroMatches, getSuggestedResponse } from "./matcher.js";
+import { macros } from "./macrosData.js";
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   // CORS headers
@@ -37,13 +27,6 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    if (macros.length === 0) {
-      return res.status(500).json({ 
-        error: "Macros not loaded",
-        detail: "The macro database failed to load at startup"
-      });
-    }
-    
     const matches = findMacroMatches(message, macros, 3);
     const { suggestedResponse, macrosUsed } = getSuggestedResponse(message, matches);
 
