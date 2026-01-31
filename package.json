@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vercel dev",
     "dev:vite": "vite",
-    "build": "npx tsc -b && npx vite build",
+    "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "convert-macros": "node scripts/convertMacrosToJson.js"
