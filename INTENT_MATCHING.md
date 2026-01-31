@@ -41,6 +41,18 @@ Intent categories are aligned with **Fountain Workflows** (billing, labs, schedu
 | **qualify_treatment** | Do I qualify, eligible | General CS: Do I qualify for TRT treatment? |
 | **in_person_appointments** | In-person appointment, do you do in-person | Unknown SMS: Do you do in-person appointments? |
 | **scam_legit** | Scam, legit, legitimate | General CS: Is your program a scam? |
+| **company_location** | Where are you located, headquarters | General CS: Where are you located? |
+| **remote_work** | Are you all remote, work remotely | General CS: Remote Work |
+| **website_info** | Where do I find more info, website | General CS: Website |
+| **job_applications** | Job openings, applied, haven't heard back | General CS: Impatient Applicant, Non-medical job applications |
+| **provider_specialty** | What kind of providers, provider background | General CS: Provider specialty |
+| **affiliate_partnership** | Affiliate program, partnership programs | General CS: Affiliate Program, Partnership programs |
+| **operate_outside_us** | Operate outside US, international | Unknown SMS: Do you operate outside of the US? |
+| **contact_phone** | Can I call you, contact number | General CS: Can I call you? |
+| **states_we_operate** | What states do you operate in | HRT: What states do you operate in? |
+| **prescribe_question** | Do you prescribe X, what medications | General CS: Do you prescribe peptides/ED meds/etc. |
+| **what_pharmacies** | What pharmacies do you use | General CS: What pharmacies do you use?, Pharmacies Used |
+| **what_lab_partners** | What lab companies do you partner with | General CS: What lab companies do you partner with? |
 
 ---
 

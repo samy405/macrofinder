@@ -193,6 +193,24 @@ describe("Intent-based matching", () => {
     expect(top).toMatch(/another\s+pharmacy|order\s+processed/);
   });
 
+  it('"Where are you located?" -> General CS: Where are you located?', () => {
+    const query = "Where are you located?";
+    const result = intentMatch(query, macros, 3);
+    expect(result.mode).toBe("intent");
+    expect(result.primaryIntent).toBe("company_location");
+    expect(result.matches.length).toBeGreaterThan(0);
+    const topTitle = result.matches[0].macro.title.toLowerCase();
+    expect(topTitle).toContain("where are you located");
+  });
+
+  it('"Do you prescribe peptides?" -> prescribe peptides macro (not ED or HRT injections)', () => {
+    const query = "Do you prescribe peptides?";
+    const result = intentMatch(query, macros, 3);
+    expect(result.primaryIntent).toBe("prescribe_question");
+    const topTitle = result.matches[0].macro.title.toLowerCase();
+    expect(topTitle).toMatch(/peptides/);
+  });
+
   it("Completes quickly (no network)", () => {
     const query = "How do I cancel my subscription?";
     const start = Date.now();

@@ -108,6 +108,24 @@ export function getMacroIntents(macro: Macro): string[] {
   // Scam / legit: is your program a scam
   if (/scam|legit|legitimate/i.test(t)) intents.push("scam_legit");
 
+  // Company / operations / lead questions
+  if (/where\s+are\s+you\s+located|where\s+located/i.test(t)) intents.push("company_location");
+  if (/remote\s+work|are\s+you\s+remote/i.test(t)) intents.push("remote_work");
+  if (/website|fountain\.net|more\s+info/i.test(t)) intents.push("website_info");
+  if (/impatient\s+applicant|job\s+application|haven'?t\s+heard\s+back/i.test(t)) intents.push("job_applications");
+  if (/non[- ]?medical\s+job|job\s+that\s+aren'?t/i.test(t)) intents.push("job_applications");
+  if (/provider\s+specialty|what\s+kind\s+of\s+providers/i.test(t)) intents.push("provider_specialty");
+  if (/affiliate\s+program/i.test(t)) intents.push("affiliate_partnership");
+  if (/partnership\s+programs?/i.test(t)) intents.push("affiliate_partnership");
+  if (/operate\s+outside|outside\s+the\s+us|international/i.test(t)) intents.push("operate_outside_us");
+  if (/can\s+i\s+call\s+you|contact\s+number|phone\s+number/i.test(t)) intents.push("contact_phone");
+  if (/what\s+states\s+do\s+you\s+operate|states\s+do\s+you\s+operate/i.test(t)) intents.push("states_we_operate");
+  if (/pharmacies\s+do\s+you\s+use|pharmacies\s+used|what\s+pharmacies/i.test(t)) intents.push("what_pharmacies");
+  if (/what\s+lab\s+companies\s+do\s+you\s+partner|lab\s+companies\s+partner|labcorp\s+and\s+quest/i.test(t)) intents.push("what_lab_partners");
+  // Prescribe / medication questions: "Do you prescribe X?" macros
+  if (/do\s+you\s+prescribe|what\s+(type\s+of\s+)?(medications?|meds?|testosterone|injections?)\s+do\s+you\s+prescribe/i.test(t))
+    intents.push("prescribe_question");
+
   // Pricing / discount: macro is about pricing or discounts
   if (/pricing|price\s+objection|discount|promo|no\s+discount|veteran/i.test(t)) intents.push("pricing_concerns", "discount_promo");
   if (/insurance/i.test(t)) intents.push("insurance");
@@ -208,6 +226,30 @@ function buildRationale(
       return "Matched because patient is asking about in-person appointments.";
     if (intent.primary_intent === "scam_legit")
       return "Matched because patient is asking if the program is legitimate or a scam.";
+    if (intent.primary_intent === "company_location")
+      return "Matched because patient is asking where Fountain is located; this macro explains we are telemedicine with team members in the US and abroad.";
+    if (intent.primary_intent === "remote_work")
+      return "Matched because patient is asking if the team works remotely; this macro confirms remote work.";
+    if (intent.primary_intent === "website_info")
+      return "Matched because patient is asking where to find more information; this macro points to fountain.net.";
+    if (intent.primary_intent === "job_applications")
+      return "Matched because patient is asking about job applications or status; this macro addresses application review.";
+    if (intent.primary_intent === "provider_specialty")
+      return "Matched because patient is asking about provider background or specialty; this macro describes our NPs.";
+    if (intent.primary_intent === "affiliate_partnership")
+      return "Matched because patient is asking about affiliate or partnership programs; this macro addresses that.";
+    if (intent.primary_intent === "operate_outside_us")
+      return "Matched because patient is asking if Fountain operates outside the US; this macro explains we are US-only for now.";
+    if (intent.primary_intent === "contact_phone")
+      return "Matched because patient is asking for a contact or phone number; this macro provides the number.";
+    if (intent.primary_intent === "states_we_operate")
+      return "Matched because patient is asking which states Fountain operates in; this macro lists states.";
+    if (intent.primary_intent === "prescribe_question")
+      return "Matched because patient is asking what medications or treatments Fountain prescribes; this macro answers that.";
+    if (intent.primary_intent === "what_pharmacies")
+      return "Matched because patient is asking which pharmacies Fountain uses; this macro lists partner pharmacies.";
+    if (intent.primary_intent === "what_lab_partners")
+      return "Matched because patient is asking which lab companies Fountain partners with; this macro lists LabCorp and Quest.";
     return `Matched because patient intent (${intent.primary_intent}) aligns with this macro.`;
   }
   if (secondaryMatch)
@@ -243,6 +285,19 @@ export function scoreMacros(
     // Direct-answer boost: short macros that directly answer the question rank above long explanatory ones (all categories)
     const bodyLen = (macro.text ?? "").length;
     if (primaryMatch && bodyLen > 0 && bodyLen <= DIRECT_ANSWER_MAX_CHARS) intentScore += DIRECT_ANSWER_BOOST;
+
+    // Prescribe-question boost: when asking "Do you prescribe X?", prefer the macro that mentions the same X (e.g. peptides, ED, B12)
+    const medKeywords = ["peptides", "ed meds", "b12", "hgh", "cream", "injections", "oral", "supplements", "spironolactone", "thyroid", "patches", "pellets", "testosterone enanthate", "hrt injections", "trt", "glp", "sildenafil", "tadalafil", "enclomiphene", "bioidentical", "needles"];
+    if (primary === "prescribe_question" && primaryMatch) {
+      const msgLower = normalized;
+      const titleLower = macro.title.toLowerCase();
+      for (const kw of medKeywords) {
+        if (msgLower.includes(kw) && titleLower.includes(kw)) {
+          intentScore += 0.12;
+          break;
+        }
+      }
+    }
 
     // Penalty: wrong category when primary is clear
     if (primary !== "general" && !primaryMatch) {

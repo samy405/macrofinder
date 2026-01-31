@@ -51,6 +51,18 @@ export const INTENT_IDS = [
   "qualify_treatment",
   "in_person_appointments",
   "scam_legit",
+  "company_location",
+  "remote_work",
+  "website_info",
+  "job_applications",
+  "provider_specialty",
+  "affiliate_partnership",
+  "operate_outside_us",
+  "contact_phone",
+  "states_we_operate",
+  "prescribe_question",
+  "what_pharmacies",
+  "what_lab_partners",
 ] as const;
 
 // --- Phrase patterns (multi-word signals; paraphrases from Fountain Workflows) ---
@@ -203,6 +215,52 @@ const PATTERNS: Record<string, RegExp[]> = {
     /in[- ]?person\s+appointment|do\s+you\s+do\s+in[- ]?person|see\s+someone\s+in\s+person/i,
   ],
   scam_legit: [/scam|legit|legitimate|real\s+company|trustworthy/i],
+  company_location: [
+    /where\s+are\s+you\s+located|where\s+is\s+fountain\s+located|where\s+is\s+your\s+office/i,
+    /headquarters|physical\s+location|where\s+are\s+you\s+based|company\s+location/i,
+  ],
+  remote_work: [
+    /are\s+you\s+(all\s+)?remote|do\s+you\s+work\s+remotely|remote\s+work|work\s+from\s+home/i,
+  ],
+  website_info: [
+    /where\s+(do\s+i\s+)?find\s+more\s+info|more\s+information\s+about\s+(your\s+)?services/i,
+    /your\s+website|fountain\.net|where\s+can\s+i\s+learn\s+more/i,
+  ],
+  job_applications: [
+    /job\s+openings?|do\s+you\s+have\s+(any\s+)?job\s+openings|applied\s+(for|to)|haven'?t\s+heard\s+back/i,
+    /when\s+will\s+i\s+hear\s+back|application\s+status|indeed|job\s+application/i,
+    /non[- ]?medical\s+job|job\s+that\s+aren'?t\s+medical/i,
+  ],
+  provider_specialty: [
+    /what\s+kind\s+of\s+providers?|provider\s+specialty|what\s+are\s+your\s+providers\s+trained\s+for/i,
+    /nurse\s+practitioner|np\s+background|provider\s+background/i,
+  ],
+  affiliate_partnership: [
+    /affiliate\s+program|do\s+you\s+have\s+affiliates|partnership\s+programs?/i,
+    /do\s+you\s+offer\s+partnership|third\s+party\s+partnership/i,
+  ],
+  operate_outside_us: [
+    /operate\s+outside\s+(the\s+)?us|do\s+you\s+operate\s+internationally|international\s+patients?/i,
+    /outside\s+the\s+us|abroad|other\s+countries/i,
+  ],
+  contact_phone: [
+    /can\s+i\s+call\s+you|what\s+is\s+your\s+contact\s+number|phone\s+number|call\s+you\s+directly/i,
+    /how\s+can\s+i\s+reach\s+you|contact\s+number|call\s+us\s+at/i,
+  ],
+  states_we_operate: [
+    /what\s+states\s+do\s+you\s+operate\s+in|which\s+states|states\s+you\s+(are\s+)?in/i,
+    /do\s+you\s+operate\s+in\s+(my\s+)?state|available\s+in\s+my\s+state/i,
+  ],
+  prescribe_question: [
+    /do\s+you\s+prescribe\s+\w+|what\s+(medications?|meds?)\s+do\s+you\s+prescribe/i,
+    /do\s+you\s+offer\s+\w+|what\s+type\s+of\s+.*\s+do\s+you\s+prescribe|prescribe\s+(ed|b12|hgh|peptides|cream|injections)/i,
+  ],
+  what_pharmacies: [
+    /what\s+pharmacies\s+do\s+you\s+use|which\s+pharmacy|pharmacies\s+you\s+use|partner\s+pharmacies/i,
+  ],
+  what_lab_partners: [
+    /what\s+lab\s+companies\s+do\s+you\s+partner\s+with|which\s+lab\s+companies?|lab\s+partners?\s+with|do\s+you\s+use\s+labcorp|do\s+you\s+use\s+quest/i,
+  ],
 };
 
 // --- Negation patterns ---
@@ -365,6 +423,32 @@ function resolveContext(
   if (detected.has("wrong_charge_not_us"))
     return { primary: "wrong_charge_not_us", secondary: [...detected].filter((x) => x !== "wrong_charge_not_us") };
 
+  // Company / operations / lead questions (before general)
+  if (detected.has("company_location"))
+    return { primary: "company_location", secondary: [...detected].filter((x) => x !== "company_location") };
+  if (detected.has("remote_work"))
+    return { primary: "remote_work", secondary: [...detected].filter((x) => x !== "remote_work") };
+  if (detected.has("website_info"))
+    return { primary: "website_info", secondary: [...detected].filter((x) => x !== "website_info") };
+  if (detected.has("job_applications"))
+    return { primary: "job_applications", secondary: [...detected].filter((x) => x !== "job_applications") };
+  if (detected.has("provider_specialty"))
+    return { primary: "provider_specialty", secondary: [...detected].filter((x) => x !== "provider_specialty") };
+  if (detected.has("affiliate_partnership"))
+    return { primary: "affiliate_partnership", secondary: [...detected].filter((x) => x !== "affiliate_partnership") };
+  if (detected.has("operate_outside_us"))
+    return { primary: "operate_outside_us", secondary: [...detected].filter((x) => x !== "operate_outside_us") };
+  if (detected.has("contact_phone"))
+    return { primary: "contact_phone", secondary: [...detected].filter((x) => x !== "contact_phone") };
+  if (detected.has("states_we_operate"))
+    return { primary: "states_we_operate", secondary: [...detected].filter((x) => x !== "states_we_operate") };
+  if (detected.has("prescribe_question"))
+    return { primary: "prescribe_question", secondary: [...detected].filter((x) => x !== "prescribe_question") };
+  if (detected.has("what_pharmacies"))
+    return { primary: "what_pharmacies", secondary: [...detected].filter((x) => x !== "what_pharmacies") };
+  if (detected.has("what_lab_partners"))
+    return { primary: "what_lab_partners", secondary: [...detected].filter((x) => x !== "what_lab_partners") };
+
   // Default: pick first by priority order
   const order: string[] = [
     "billing",
@@ -407,6 +491,18 @@ function resolveContext(
     "qualify_treatment",
     "in_person_appointments",
     "scam_legit",
+    "company_location",
+    "remote_work",
+    "website_info",
+    "job_applications",
+    "provider_specialty",
+    "affiliate_partnership",
+    "operate_outside_us",
+    "contact_phone",
+    "states_we_operate",
+    "prescribe_question",
+    "what_pharmacies",
+    "what_lab_partners",
   ];
   for (const id of order) {
     if (detected.has(id)) {
@@ -479,6 +575,30 @@ export function detectIntents(message: string): IntentResult {
     detected.add("scam_legit");
   if (words.some((w) => w === "local") && /pharmacy|prescription|script/.test(normalized))
     detected.add("prescription_local_pharmacy");
+  if (/where\s+are\s+you\s+located|located|headquarters|where\s+is\s+fountain/.test(normalized))
+    detected.add("company_location");
+  if (/remote|remotely|work\s+from\s+home/.test(normalized) && /you|your\s+team|team/.test(normalized))
+    detected.add("remote_work");
+  if (/website|fountain\.net|more\s+info|find\s+more/.test(normalized))
+    detected.add("website_info");
+  if (/job|application|applied|indeed|openings/.test(normalized) && !/medication|prescription/.test(normalized))
+    detected.add("job_applications");
+  if (/what\s+kind\s+of\s+provider|provider\s+specialty|nurse\s+practitioner/.test(normalized))
+    detected.add("provider_specialty");
+  if (/affiliate|partnership\s+program/.test(normalized))
+    detected.add("affiliate_partnership");
+  if (/outside\s+the\s+us|operate\s+internationally|abroad|international/.test(normalized))
+    detected.add("operate_outside_us");
+  if (/can\s+i\s+call|contact\s+number|phone\s+number|call\s+you/.test(normalized))
+    detected.add("contact_phone");
+  if (/what\s+states|which\s+states|states\s+do\s+you\s+operate/.test(normalized))
+    detected.add("states_we_operate");
+  if (/do\s+you\s+prescribe|what\s+medications?\s+do\s+you\s+prescribe|what\s+type\s+of\s+.*\s+injections/.test(normalized))
+    detected.add("prescribe_question");
+  if (/what\s+pharmacies|which\s+pharmacy|pharmacies\s+you\s+use/.test(normalized))
+    detected.add("what_pharmacies");
+  if (/what\s+lab\s+companies|which\s+labs?|lab\s+partners?/.test(normalized) && !/bill|charged|schedule/.test(normalized))
+    detected.add("what_lab_partners");
 
   const negated = extractNegatedTerms(message);
   for (const term of negated) {

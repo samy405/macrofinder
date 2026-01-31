@@ -1024,5 +1024,60 @@ export const macros: Macro[] = [
     "number": 204,
     "title": "Switch plans",
     "text": "Yes, you can switch your membership plan anytime before your subscription renews."
+  },
+  {
+    "number": 205,
+    "title": "General CS: Where are you located?",
+    "text": "Hello - thanks for reaching out. Fountain Vitality is a telemedicine company, we have team members located throughout the US and abroad."
+  },
+  {
+    "number": 206,
+    "title": "General CS: Remote Work",
+    "text": "Yes, all of our team works remotely. We have team members located throughout the US and abroad."
+  },
+  {
+    "number": 207,
+    "title": "General CS: Website",
+    "text": "More information is available on our website, fountain.net. Please let us know if you have any questions!"
+  },
+  {
+    "number": 208,
+    "title": "General CS: Impatient Applicant",
+    "text": "Our team is reviewing all applications. If we decide to proceed with your application, we will contact you. Thank you!"
+  },
+  {
+    "number": 209,
+    "title": "General CS: Non-medical job applications",
+    "text": "If there are any non-medical job postings, they will be posted on our Indeed page: https://www.indeed.com/cmp/Fountain-Vitality-Inc. Please let us know if you have any questions."
+  },
+  {
+    "number": 210,
+    "title": "General CS: Provider specialty",
+    "text": "Our hormone replacement therapy providers are trained Nurse Practitioners with specialized expertise in diagnosing and managing hormonal imbalances. Each practitioner has completed clinical training in treatment protocols and is experienced in providing personalized care for men and women. Please let us know if you have any further questions."
+  },
+  {
+    "number": 211,
+    "title": "General CS: Affiliate Program",
+    "text": "We appreciate your support, but we do not have an affiliate program for patients."
+  },
+  {
+    "number": 212,
+    "title": "General CS: Partnership programs",
+    "text": "Hello, thanks for reaching out. We'll make sure to forward your question to our marketing team. Thank you!"
+  },
+  {
+    "number": 213,
+    "title": "Unknown SMS: Do you operate outside of the US?",
+    "text": "At this time, we're only operating in select US states. We hope to expand abroad soon!"
+  },
+  {
+    "number": 214,
+    "title": "General CS: Can I call you?",
+    "text": "Sure. Please feel free to call us at 1213-237-1454."
+  },
+  {
+    "number": 215,
+    "title": "General CS: What lab companies do you partner with?",
+    "text": "We currently partner with LabCorp and Quest. Our national account with these facilities allows patients to complete their lab work at any Quest/LabCorp location across the US. We can cover the cost of lab work in all US states besides New York, New Jersey, and Rhode Island."
   }
 ];
