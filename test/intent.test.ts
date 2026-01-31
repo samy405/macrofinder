@@ -144,7 +144,7 @@ describe("Intent-based matching", () => {
     }
   });
 
-  it('"Can I switch to a different subscription plan?" -> plan options / pricing macros (not pharmacy, pause, or TRT qualify)', () => {
+  it('"Can I switch to a different subscription plan?" -> Switch plans #1, then plan/pricing macros', () => {
     const query = "Can I switch to a different subscription plan?";
     const result = intentMatch(query, macros, 3);
 
@@ -152,9 +152,13 @@ describe("Intent-based matching", () => {
     expect(result.primaryIntent).toBe("plan_change");
     expect(result.matches.length).toBeGreaterThan(0);
 
+    // Direct-answer "Switch plans" must rank first (short body gets direct-answer boost)
+    const topTitle = result.matches[0].macro.title.toLowerCase();
+    expect(topTitle).toBe("switch plans");
+
     const topTitles = result.matches.slice(0, 3).map((m) => m.macro.title.toLowerCase());
     const hasPlanPricing = topTitles.some((t) =>
-      /charge\s+alignment|subscription\s+fees|pricing\s+plans|pricing|plan/.test(t)
+      /switch\s+plans|charge\s+alignment|subscription\s+fees|pricing\s+plans|pricing|plan/.test(t)
     );
     expect(hasPlanPricing).toBe(true);
     // Should NOT rank pharmacy order, pause, or TRT qualify as top

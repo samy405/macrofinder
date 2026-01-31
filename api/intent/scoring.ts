@@ -9,6 +9,9 @@ import type { RankedMacro } from "./types.js";
 const INTENT_WEIGHT_PRIMARY = 0.65;
 const INTENT_WEIGHT_SECONDARY = 0.2;
 const KEYWORD_WEIGHT_MAX = 0.2;
+/** Boost for direct-answer macros (short body) so they rank above long explanatory macros for the same intent */
+const DIRECT_ANSWER_BOOST = 0.15;
+const DIRECT_ANSWER_MAX_CHARS = 120;
 
 /** Derive intents from macro title when not in metadata. Only tag when the macro is actually about that topic. */
 export function getMacroIntents(macro: Macro): string[] {
@@ -64,8 +67,9 @@ export function getMacroIntents(macro: Macro): string[] {
   // Needles/syringes: supplies (tagged as refills for matching)
   if (/needle|syringe/i.test(t)) intents.push("refills");
 
-  // Plan change / switch subscription: macro explains plan options, pricing tiers (not cancel/pause, not pharmacy other)
-  if (/charge\s+alignment|subscription\s+fees\s+for|pricing\s+of\s+our\s+plans|pricing\s+plans|fountain\s+hrt\s+and\s+trt\s+pricing/i.test(t))
+  // Plan change / switch subscription: direct-answer ("Switch plans") or explanatory (pricing, charge alignment)
+  if (/\bswitch\s+plans?\b/i.test(t) && !/cancel|pause|multiple\s+plans/.test(t)) intents.push("plan_change");
+  if (/charge\s+alignment|subscription\s+fees\s+for|pricing\s+of\s+our\s+plans|pricing\s+plans|fountain\s+hrt\s+and\s+trt\s+pricing|trt\/hrt\s+pricing/i.test(t))
     intents.push("plan_change");
 
   // Receipt / itemized / FSA/HSA: macro is about receipts or FSA/HSA
@@ -164,8 +168,12 @@ function buildRationale(
       return "Matched because patient did not receive medication or needs a replacement.";
     if (intent.primary_intent === "scheduling" || intent.primary_intent === "scheduling_video_visit")
       return "Matched because patient is asking about scheduling, appointments, or video visits.";
-    if (intent.primary_intent === "plan_change")
-      return "Matched because patient is asking about switching or changing their subscription plan; this macro explains plan options and pricing.";
+    if (intent.primary_intent === "plan_change") {
+      const isDirectAnswer = /\bswitch\s+plans?\b/i.test(macro.title);
+      return isDirectAnswer
+        ? "Matched because patient is asking whether they can switch plans; this macro directly answers yes and when they can switch."
+        : "Matched because patient is asking about switching or changing their subscription plan; this macro explains plan options and pricing.";
+    }
     if (intent.primary_intent === "receipt_itemized")
       return "Matched because patient is asking for a receipt, itemized breakdown, or FSA/HSA documentation.";
     if (intent.primary_intent === "resume_treatment")
@@ -231,6 +239,10 @@ export function scoreMacros(
     let keywordScore = keywordOverlapScore(normalized, macro);
     const keywordContribution = Math.min(KEYWORD_WEIGHT_MAX, keywordScore * KEYWORD_WEIGHT_MAX);
     intentScore += keywordContribution;
+
+    // Direct-answer boost: short macros that directly answer the question rank above long explanatory ones (all categories)
+    const bodyLen = (macro.text ?? "").length;
+    if (primaryMatch && bodyLen > 0 && bodyLen <= DIRECT_ANSWER_MAX_CHARS) intentScore += DIRECT_ANSWER_BOOST;
 
     // Penalty: wrong category when primary is clear
     if (primary !== "general" && !primaryMatch) {

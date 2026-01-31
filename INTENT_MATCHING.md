@@ -27,7 +27,7 @@ Intent categories are aligned with **Fountain Workflows** (billing, labs, schedu
 | **out_of_state_travel** | Traveling, out of state, Hawaii, extra meds for travel | LC - Traveling, General CS: Extra medication for travel |
 | **cancellation_pause** | Cancel, pause, stop subscription | Billing: Cancel Subscription, Pause Confirmation |
 | **resume_treatment** | Resume later, come back, restart | Cancel Subscription: Resume Treatment at a Later Date |
-| **plan_change** | Switch plan, change subscription plan, different plan | Billing: Charge Alignment, Subscription fees for TRT/HRT |
+| **plan_change** | Switch plan, change subscription plan, different plan | Switch plans, Billing: Charge Alignment, Subscription fees for TRT/HRT |
 | **pharmacy_other** | Order filled by another pharmacy, other pharmacy | If a patient had an order processed by another pharmacy recently |
 | **referral** | Referral link, referred by friend, $100 credit | Promotion: TRT/HRT Patient Referral |
 | **documents** | Send docs, fax, upload documents | Sending docs, Faxing Docs |
@@ -73,6 +73,10 @@ Macros can have optional metadata: `intents[]`, `tags[]`, `priority`, `contraind
   - In code, use a type that extends `Macro` with `intents?`, `tags?`, etc. (e.g. `MacroWithMeta` in `api/intent/types.ts`). The scorer already uses `macro.intents` when present; otherwise it falls back to `getMacroIntents(macro)`.
 
 Macros with no intents (or empty `intents`) are treated as **generic fallback**: they can still be scored by keyword overlap and secondary intent, but they won’t get a strong primary-intent boost.
+
+---
+
+**Direct-answer boost:** Short macros (body ≤ 120 characters) that match the primary intent get a scoring boost so they rank above long explanatory macros. For example, "Switch plans" (direct yes/no answer) ranks first for "Can I switch to a different subscription plan?" above Billing: Charge Alignment and TRT/HRT pricing. This applies to all categories: any short, direct-answer macro will outrank longer ones for the same intent.
 
 ---
 

@@ -1019,5 +1019,10 @@ export const macros: Macro[] = [
     "number": 203,
     "title": "Promotion: Veteran's Discount",
     "text": "Hi - we appreciate your service, but at this time we do not offer a Veteran's discount."
+  },
+  {
+    "number": 204,
+    "title": "Switch plans",
+    "text": "Yes, you can switch your membership plan anytime before your subscription renews."
   }
 ];
