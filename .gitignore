@@ -1,8 +1,7 @@
 .vercel
+.env
 .env*.local
-
-# Semantic embeddings (large file, regenerate with npm run build-embeddings)
-data/macro_embeddings.json
+.env.local
 
 # Test coverage
 coverage/

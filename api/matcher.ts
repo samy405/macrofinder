@@ -1,17 +1,13 @@
 /**
- * Macro Finder - Legacy Keyword Matcher (DEPRECATED)
- * 
- * ⚠️ THIS FILE IS NO LONGER USED IN PRODUCTION ⚠️
- * 
- * The system now uses semantic search (embeddings + LLM reranking).
- * See: api/semantic/index.ts
- * 
+ * Macro Finder - Legacy Keyword Matcher (DEPRECATED for ranking)
+ *
+ * The system uses intent-based matching (api/intent/index.ts) for macro ranking.
+ *
  * This file is kept for:
  * - Suggested response generation (getSuggestedResponse)
  * - Placeholder detection (detectPlaceholders)
- * - Backward compatibility with old tests
- * 
- * DO NOT use findMacroMatches() - use semanticMatch() instead.
+ *
+ * DO NOT use findMacroMatches() for ranking - use intentMatch() from api/intent instead.
  */
 
 export interface Macro {

@@ -20,7 +20,7 @@ export type ApiResult = {
   macrosUsed: string[];
   placeholders?: string[];
   hasPlaceholders?: boolean;
-  matchingMode?: "semantic" | "fallback"; // NEW
+  matchingMode?: "intent" | "semantic" | "fallback";
   primaryIntent?: string; // NEW
   secondaryIntent?: string; // NEW
   performanceMs?: { // NEW

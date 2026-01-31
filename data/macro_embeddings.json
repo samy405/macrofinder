@@ -2,6 +2,6 @@
   "version": "1.0.0",
   "model": "text-embedding-3-small",
   "dimensions": 1536,
-  "generatedAt": "2026-01-31T05:45:47.752Z",
+  "generatedAt": "2026-01-31T05:48:45.890Z",
   "macros": []
 }

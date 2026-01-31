@@ -6,12 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build-embeddings": "node scripts/buildEmbeddings.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "convert-macros": "node scripts/convertMacrosToJson.js",
     "test": "vitest",
-    "test:semantic": "vitest run --reporter=verbose test/semantic.test.ts"
+    "test:intent": "vitest run --reporter=verbose test/intent.test.ts"
   },
   "dependencies": {
     "react": "^19.2.0",

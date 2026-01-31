@@ -1,20 +1,19 @@
 /**
  * Vercel Serverless Function: POST /api/match
  * Accepts { message: string } and returns matching macros + suggested response.
- * 
- * NOW USING SEMANTIC SEARCH (embeddings + LLM reranking)
+ *
+ * Uses intent-based matching (NO API) - fully offline.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getSuggestedResponse, detectPlaceholders } from "./matcher.js";
 import { macros } from "./macrosData.js";
-import { semanticMatch, convertToLegacyFormat } from "./semantic/index.js";
+import { intentMatch, convertToLegacyFormat } from "./intent/index.js";
 
 // Simple analytics storage (in-memory for demo; use database in production)
 const analytics = {
   totalQueries: 0,
   commonQueries: new Map<string, number>(),
-  semanticQueries: 0,
-  fallbackQueries: 0,
+  intentQueries: 0,
 };
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
@@ -43,11 +42,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     if (getAnalytics === "true") {
       return res.status(200).json({
         totalQueries: analytics.totalQueries,
-        semanticQueries: analytics.semanticQueries,
-        fallbackQueries: analytics.fallbackQueries,
-        fallbackRate: analytics.totalQueries > 0 
-          ? `${((analytics.fallbackQueries / analytics.totalQueries) * 100).toFixed(1)}%`
-          : "0%",
+        intentQueries: analytics.intentQueries,
         topQueries: Array.from(analytics.commonQueries.entries())
           .sort((a, b) => b[1] - a[1])
           .slice(0, 10),
@@ -81,24 +76,14 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     analytics.commonQueries.set(queryKey, (analytics.commonQueries.get(queryKey) || 0) + 1);
 
     // ============================================================
-    // SEMANTIC MATCHING PIPELINE (replaces keyword matching)
+    // INTENT-BASED MATCHING (NO API - fully offline)
     // ============================================================
-    const semanticResult = await semanticMatch(message, macros, 3);
-    
-    // Track mode usage
-    if (semanticResult.mode === "semantic") {
-      analytics.semanticQueries++;
-    } else {
-      analytics.fallbackQueries++;
-    }
-    
-    // Convert to legacy format for backward compatibility
-    const matches = convertToLegacyFormat(semanticResult);
-    
-    // Generate suggested response (reuses existing logic)
-    const { suggestedResponse, macrosUsed } = getSuggestedResponse(message, matches);
+    const intentResult = intentMatch(message, macros, 3);
+    analytics.intentQueries++;
 
-    // Detect placeholders in suggested response
+    const matches = convertToLegacyFormat(intentResult);
+
+    const { suggestedResponse, macrosUsed } = getSuggestedResponse(message, matches);
     const placeholders = detectPlaceholders(suggestedResponse);
 
     return res.status(200).json({
@@ -107,14 +92,13 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       macrosUsed,
       placeholders: placeholders.length > 0 ? placeholders : undefined,
       hasPlaceholders: placeholders.length > 0,
-      // Semantic metadata (NEW)
-      matchingMode: semanticResult.mode,
-      primaryIntent: semanticResult.primaryIntent,
-      secondaryIntent: semanticResult.secondaryIntent,
+      matchingMode: intentResult.mode,
+      primaryIntent: intentResult.primaryIntent,
+      secondaryIntent: intentResult.secondaryIntents?.join(", ") ?? "",
       performanceMs: {
-        retrieval: semanticResult.retrievalTimeMs,
-        rerank: semanticResult.rerankTimeMs,
-        total: semanticResult.totalTimeMs,
+        retrieval: intentResult.retrievalTimeMs,
+        rerank: intentResult.rerankTimeMs,
+        total: intentResult.totalTimeMs,
       },
     });
   } catch (err) {
