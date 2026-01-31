@@ -9,6 +9,176 @@ export interface Macro {
   text: string;
 }
 
+// ===========================================================================
+// SYNONYM EXPANSION - Map common variations to canonical terms
+// ===========================================================================
+const SYNONYMS: Record<string, string[]> = {
+  "medication": ["meds", "medicine", "rx", "prescription", "drug", "drugs"],
+  "cancel": ["cancle", "cancell", "canel", "stop", "end", "discontinue", "unsubscribe"],
+  "refund": ["refnd", "money back", "reimburse", "reimbursement"],
+  "discount": ["discounts", "disount", "diccount", "promo", "promotion", "coupon", "deal"],
+  "insurance": ["insurence", "insurnace", "insuranse"],
+  "shipping": ["shiping", "shippng", "delivery", "deliver"],
+  "appointment": ["apointment", "appointmnt", "visit", "consultation"],
+  "prescription": ["perscription", "presciption", "rx", "script"],
+  "testosterone": ["testosteron", "testerone", "test", "trt"],
+  "subscription": ["subcription", "subscribtion", "membership", "plan"],
+  "receipt": ["reciept", "recipt", "invoice"],
+  "refill": ["refil", "reffill", "reorder"],
+  "charge": ["chrge", "chrage", "payment", "bill"],
+  "schedule": ["schedual", "scedule", "book", "set up"],
+  "results": ["resutls", "resluts", "report"],
+  "doctor": ["doc", "provider", "physician", "dr"],
+  "syringe": ["syringes", "needles", "needle"],
+};
+
+// ===========================================================================
+// COMMON TYPOS - Direct typo corrections
+// ===========================================================================
+const TYPO_CORRECTIONS: Record<string, string> = {
+  "cancle": "cancel",
+  "cancell": "cancel",
+  "canel": "cancel",
+  "discout": "discount",
+  "diccount": "discount",
+  "disount": "discount",
+  "insurence": "insurance",
+  "insurnace": "insurance",
+  "insuranse": "insurance",
+  "shiping": "shipping",
+  "shippng": "shipping",
+  "delivary": "delivery",
+  "apointment": "appointment",
+  "appointmnt": "appointment",
+  "perscription": "prescription",
+  "presciption": "prescription",
+  "testosteron": "testosterone",
+  "testerone": "testosterone",
+  "subcription": "subscription",
+  "subscribtion": "subscription",
+  "reciept": "receipt",
+  "recipt": "receipt",
+  "refil": "refill",
+  "reffill": "refill",
+  "chrge": "charge",
+  "chrage": "charge",
+  "schedual": "schedule",
+  "scedule": "schedule",
+  "resutls": "results",
+  "resluts": "results",
+  "labratory": "laboratory",
+  "labrotory": "laboratory",
+  "medicaton": "medication",
+  "medicatin": "medication",
+};
+
+/**
+ * Expand message with synonyms and fix typos
+ */
+function expandMessage(message: string): string {
+  let expanded = message.toLowerCase();
+  
+  // Fix typos
+  for (const [typo, correction] of Object.entries(TYPO_CORRECTIONS)) {
+    expanded = expanded.replace(new RegExp(`\\b${typo}\\b`, "gi"), correction);
+  }
+  
+  return expanded;
+}
+
+/**
+ * Detect negation in message
+ */
+function detectNegation(message: string): { hasNegation: boolean; negatedTerms: string[] } {
+  const negatedTerms: string[] = [];
+  const negationPatterns = [
+    /don'?t\s+(?:want\s+to\s+)?(\w+)/gi,
+    /do\s+not\s+(?:want\s+to\s+)?(\w+)/gi,
+    /not\s+(?:trying\s+to\s+|looking\s+to\s+|wanting\s+to\s+)?(\w+)/gi,
+    /no\s+(\w+)/gi,
+    /without\s+(\w+)/gi,
+    /never\s+(\w+)/gi,
+  ];
+  
+  for (const pattern of negationPatterns) {
+    let match;
+    while ((match = pattern.exec(message)) !== null) {
+      negatedTerms.push(match[1].toLowerCase());
+    }
+  }
+  
+  return {
+    hasNegation: negatedTerms.length > 0,
+    negatedTerms,
+  };
+}
+
+/**
+ * Detect multiple intents in a single message
+ */
+function detectMultipleIntents(message: string): string[] {
+  const intents: string[] = [];
+  const msgLower = message.toLowerCase();
+  
+  // Check for multiple questions
+  if (/charge|billing|payment/i.test(msgLower) && !/cancel|insurance|discount/i.test(msgLower)) {
+    intents.push("billing");
+  }
+  if (/cancel/i.test(msgLower)) {
+    intents.push("cancellation");
+  }
+  if (/discount|promo|cheaper/i.test(msgLower)) {
+    intents.push("discount");
+  }
+  if (/insurance/i.test(msgLower)) {
+    intents.push("insurance");
+  }
+  if (/refund/i.test(msgLower)) {
+    intents.push("refund");
+  }
+  if (/ship|deliver/i.test(msgLower)) {
+    intents.push("shipping");
+  }
+  if (/lab|results|blood/i.test(msgLower)) {
+    intents.push("labs");
+  }
+  if (/schedule|appointment|visit/i.test(msgLower)) {
+    intents.push("scheduling");
+  }
+  if (/refill/i.test(msgLower)) {
+    intents.push("refill");
+  }
+  
+  return intents;
+}
+
+/**
+ * Detect placeholders in text that need to be filled
+ */
+export function detectPlaceholders(text: string): string[] {
+  const placeholders: string[] = [];
+  
+  // Common placeholder patterns
+  const patterns = [
+    /\[insert[^\]]*\]/gi,
+    /\[your[^\]]*\]/gi,
+    /\[patient[^\]]*\]/gi,
+    /:\s*$/gm,  // Lines ending with colon (unfilled field)
+    /_+/g,  // Underscores as blanks
+    /\{[^}]+\}/g,  // {placeholder}
+    /\$\d+/g,  // $50 amounts that might need updating
+  ];
+  
+  for (const pattern of patterns) {
+    const matches = text.match(pattern);
+    if (matches) {
+      placeholders.push(...matches);
+    }
+  }
+  
+  return [...new Set(placeholders)];
+}
+
 export interface MacroMatch {
   macro: Macro;
   score: number;
@@ -231,11 +401,15 @@ function getRelevanceScore(patientMessage: string, macro: Macro): { score: numbe
   let score = 0;
   const reasons: string[] = [];
 
-  const msgClean = patientMessage.toLowerCase().replace(/\s+/g, " ");
+  // Expand message with typo corrections and synonyms
+  const msgClean = expandMessage(patientMessage.toLowerCase().replace(/\s+/g, " "));
   const titleClean = macro.title.toLowerCase();
   const textClean = !isTitleOnly(macro) ? macro.text.toLowerCase() : "";
   const fullContent = titleClean + " " + textClean;
 
+  // Detect negation
+  const { hasNegation, negatedTerms } = detectNegation(patientMessage);
+  
   const intent = getIntent(msgClean);
   const msgKeywords = getKeywords(msgClean);
   const titleKeywords = getKeywords(titleClean);
@@ -253,6 +427,8 @@ function getRelevanceScore(patientMessage: string, macro: Macro): { score: numbe
   const asksAboutLabs = /lab|blood\s*work|results|bloodwork/i.test(msgClean);
   const asksAboutLabBill = asksAboutLabs && /bill|charged|invoice/i.test(msgClean);
   const asksAboutTracking = /track|where\s*is|shipping\s*status|order\s*status/i.test(msgClean);
+  const asksAboutShipping = /shipping|ship|delivery|deliver|how\s*long.*ship|when.*ship|when.*arrive|when.*deliver/i.test(msgClean);
+  const asksAboutShippingDuration = /how\s*long.*ship|shipping\s*time|delivery\s*time|when.*arrive|when.*get.*order/i.test(msgClean);
   const asksAboutNeedles = /needle|syringe|ran\s*out\s*of\s*needles/i.test(msgClean);
   const asksAboutPricing = /how\s*much|pricing|price|cost|fee/i.test(msgClean);
   const asksAboutRefund = /refund|money\s*back|reimburse/i.test(msgClean);
@@ -400,6 +576,29 @@ function getRelevanceScore(patientMessage: string, macro: Macro): { score: numbe
     }
   }
 
+  // --- SHIPPING / DELIVERY QUESTIONS ---
+  if (asksAboutShipping && !asksAboutReplacement) {
+    if (/shipping|overnight\s*shipping/i.test(titleClean)) {
+      score += 9.0;
+      reasons.push("Shipping macro (exact match)");
+    } else if (/orders?:/i.test(titleClean) && /ship|deliver/i.test(fullContent)) {
+      score += 7.0;
+      reasons.push("Orders macro with shipping content");
+    } else if (/expedite|delayed/i.test(titleClean)) {
+      score += 6.0;
+      reasons.push("Expedite/delay macro");
+    }
+    // Strong penalty for lab macros when asking about shipping
+    if (/labs?:/i.test(titleClean) || /blood\s*draw|lab\s*results/i.test(titleClean)) {
+      score -= 10.0;
+      reasons.push("Lab macro penalized (user asks about shipping)");
+    }
+    // Penalize unrelated
+    if (/insurance/i.test(titleClean)) { score -= 6.0; reasons.push("Insurance irrelevant to shipping"); }
+    if (/cancel/i.test(titleClean)) { score -= 5.0; reasons.push("Cancel irrelevant to shipping"); }
+    if (/discount/i.test(titleClean)) { score -= 4.0; reasons.push("Discount irrelevant to shipping"); }
+  }
+
   // --- NEEDLES/SYRINGES QUESTIONS ---
   if (asksAboutNeedles) {
     if (/needle|syringe/i.test(titleClean)) {
@@ -543,6 +742,34 @@ function getRelevanceScore(patientMessage: string, macro: Macro): { score: numbe
       if (new RegExp(escaped, "i").test(titleClean)) {
         score += 1.5;
         reasons.push(`Direct phrase: '${phrase}'`);
+      }
+    }
+  }
+
+  // ===========================================================================
+  // NEGATION HANDLING - Penalize macros matching negated terms
+  // ===========================================================================
+  if (hasNegation) {
+    for (const negatedTerm of negatedTerms) {
+      // If user says "don't want to cancel" and macro is about cancellation
+      if (negatedTerm === "cancel" && /cancel/i.test(titleClean)) {
+        score -= 10.0;
+        reasons.push("Negated: user doesn't want to cancel");
+      }
+      // If user says "don't need refund" and macro is about refunds
+      if (negatedTerm === "refund" && /refund/i.test(titleClean)) {
+        score -= 10.0;
+        reasons.push("Negated: user doesn't want refund");
+      }
+      // If user says "not about insurance" 
+      if (negatedTerm === "insurance" && /insurance/i.test(titleClean)) {
+        score -= 8.0;
+        reasons.push("Negated: not about insurance");
+      }
+      // General negation penalty
+      if (titleClean.includes(negatedTerm)) {
+        score -= 5.0;
+        reasons.push(`Negated term: ${negatedTerm}`);
       }
     }
   }
