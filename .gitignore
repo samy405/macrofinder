@@ -1,2 +1,20 @@
 .vercel
 .env*.local
+
+# Semantic embeddings (large file, regenerate with npm run build-embeddings)
+data/macro_embeddings.json
+
+# Test coverage
+coverage/
+
+# Build artifacts
+dist/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

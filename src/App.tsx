@@ -10,6 +10,8 @@ export type MacroMatchResult = {
   matchReasons: string[];
   confidence?: number;
   category?: string;
+  rationale?: string; // NEW: Semantic explanation
+  isFallback?: boolean; // NEW: Indicates fallback mode
 };
 
 export type ApiResult = {
@@ -18,6 +20,14 @@ export type ApiResult = {
   macrosUsed: string[];
   placeholders?: string[];
   hasPlaceholders?: boolean;
+  matchingMode?: "semantic" | "fallback"; // NEW
+  primaryIntent?: string; // NEW
+  secondaryIntent?: string; // NEW
+  performanceMs?: { // NEW
+    retrieval: number;
+    rerank: number;
+    total: number;
+  };
 };
 
 type MacroData = {
@@ -327,6 +337,21 @@ function App() {
 
               {result && (
                 <section className="results-section" aria-label="Results">
+                  {/* Fallback mode warning */}
+                  {result.matchingMode === "fallback" && (
+                    <div className="fallback-warning">
+                      ⚠️ <strong>Keyword fallback mode</strong> - Semantic search unavailable (API key not configured)
+                    </div>
+                  )}
+                  
+                  {/* Performance metrics (debug) */}
+                  {result.performanceMs && result.matchingMode === "semantic" && (
+                    <div className="performance-info">
+                      ✓ Semantic search: {result.performanceMs.total}ms
+                      {result.primaryIntent && ` · Primary intent: ${result.primaryIntent}`}
+                    </div>
+                  )}
+                  
                   <h3 className="results-heading">Top Matching Macros</h3>
                   
                   {result.matches.length === 0 ? (
@@ -364,6 +389,11 @@ function App() {
                               {copiedId === `macro-${i}` ? "Copied" : "Copy"}
                             </button>
                           </div>
+                          {m.rationale && (
+                            <div className="macro-rationale">
+                              <strong>Why this macro:</strong> {m.rationale}
+                            </div>
+                          )}
                           <div className="macro-text">
                             {m.macro.text?.trim() ? m.macro.text : "[Title only - no text available]"}
                           </div>

@@ -6,9 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build-embeddings": "node scripts/buildEmbeddings.js",
     "lint": "eslint .",
     "preview": "vite preview",
-    "convert-macros": "node scripts/convertMacrosToJson.js"
+    "convert-macros": "node scripts/convertMacrosToJson.js",
+    "test": "vitest",
+    "test:semantic": "vitest run --reporter=verbose test/semantic.test.ts"
   },
   "dependencies": {
     "react": "^19.2.0",
@@ -28,6 +31,7 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vercel": "^50.9.6",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vitest": "^1.6.0"
   }
 }
