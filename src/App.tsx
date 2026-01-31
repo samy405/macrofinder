@@ -86,7 +86,7 @@ function App() {
         <div className="app-header-content">
           <div className="logo-link" aria-hidden="true">
             <img
-              src={theme === "light" ? "/brand/fountain-logo-light.png?v=1" : "/brand/fountain-logo.png?v=3"}
+              src={theme === "light" ? "/brand/fountain-logo-light.png?v=1" : "/brand/fountain-logo-dark.png?v=1"}
               alt="Fountain"
               className="fountain-logo"
             />
