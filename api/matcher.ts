@@ -308,15 +308,28 @@ function getRelevanceScore(patientMessage: string, macro: Macro): { score: numbe
   }
 
   // 1b. Scenario-based boosts
+  // Distinguish between "charge date" questions and "refill date" questions
+  const asksAboutCharge = /charge\s*date|next\s*charge|when\s*.*charge|billing\s*date/i.test(msgClean);
+  const asksAboutRefill = /refill\s*date|next\s*refill|when\s*.*refill/i.test(msgClean);
+  
   if (intent.billingCycleQuestion || intent.billingCycleConfusion) {
-    if (/charge\s?alignment|charge\s?date|next\s?refill\s?date/i.test(titleClean) ||
-        /charge\s?date|next\s?refill|recurring|billing\s?cycle|timing\s?of\s?your\s?payments/i.test(textClean)) {
+    // Only boost charge-related macros for charge questions (NOT refill macros)
+    if (/charge\s?alignment/i.test(titleClean) ||
+        /charge\s?date|recurring|billing\s?cycle|timing\s?of\s?your\s?payments/i.test(textClean)) {
       score += 4.0;
       reasons.push("Billing cycle / charge date scenario");
     }
     if (/billing/i.test(titleClean) && (/charge|payment|recur/i.test(textClean) || /charge/i.test(titleClean))) {
       score += 1.5;
       reasons.push("Billing macro for charge question");
+    }
+  }
+  
+  // Penalize "refill" macros when user is asking about "charge" dates (they're different concepts)
+  if (asksAboutCharge && !asksAboutRefill) {
+    if (/refill\s?date|next\s?refill/i.test(titleClean) && !/charge/i.test(titleClean)) {
+      score -= 3.0;
+      reasons.push("Refill macro penalized for charge question (different concepts)");
     }
   }
   if (intent.discountQuestion) {
@@ -501,7 +514,8 @@ export function getSuggestedResponse(
     }
     let response = primaryText;
     if (/Charge Alignment/i.test(primary.macro.title)) {
-      response = "Your charge date and next refill date can be confirmed from your account (or we can look them up for you). " +
+      // Remove placeholder lines and add context (no patient portal exists)
+      response = "We can look up your charge date and next refill date for you - just let us know if you'd like us to check. " +
         response.replace(/^Your charge date is:.*?Please note/is, "Please note");
     }
     response = cleanEncodingArtifacts(response.replace(/\s+/g, " ").trim());
@@ -563,9 +577,9 @@ export function getSuggestedResponse(
     macrosUsed.push(`Macro #${secondary!.macro.number}: ${secondary!.macro.title}`);
   }
 
-  // Final light edit for charge alignment
+  // Final light edit for charge alignment (no patient portal exists)
   if (/Your charge date is:/i.test(combined)) {
-    combined = "Your charge date and next refill date can be confirmed from your account (or we can look them up for you). " +
+    combined = "We can look up your charge date and next refill date for you - just let us know if you'd like us to check. " +
       combined.replace(/^Your charge date is:.*?Please note/is, "Please note");
   }
 
