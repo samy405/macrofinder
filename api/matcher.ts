@@ -419,12 +419,14 @@ function getRelevanceScore(patientMessage: string, macro: Macro): { score: numbe
   // SCENARIO DETECTION (what is the user asking about?)
   // ===========================================================================
   const asksAboutCharge = /charge\s*date|next\s*charge|when\s*.*charge|billing\s*date|when\s*am\s*i\s*charged/i.test(msgClean);
+  const asksAboutDoubleCharge = /charged\s*twice|double\s*charge|two\s*charges|why.*charged.*again|billed\s*twice/i.test(msgClean);
   const asksAboutRefill = /refill\s*date|next\s*refill|when\s*.*refill/i.test(msgClean);
   const asksAboutInsurance = /insurance|do\s*you\s*accept|covered\s*by/i.test(msgClean);
   const asksAboutCancel = /cancel|cancellation|stop\s*my|end\s*my/i.test(msgClean);
   const asksAboutDiscount = intent.discountQuestion;
   const asksAboutReplacement = intent.replacementScenario;
   const asksAboutLabs = /lab|blood\s*work|results|bloodwork/i.test(msgClean);
+  const asksAboutLabResults = /(how.*see|view|access|check|get).*results|results.*portal|lab.*portal|see.*my.*labs/i.test(msgClean);
   const asksAboutLabBill = asksAboutLabs && /bill|charged|invoice/i.test(msgClean);
   const asksAboutTracking = /track|where\s*is|shipping\s*status|order\s*status/i.test(msgClean);
   const asksAboutShipping = /shipping|ship|delivery|deliver|how\s*long.*ship|when.*ship|when.*arrive|when.*deliver/i.test(msgClean);
@@ -446,7 +448,7 @@ function getRelevanceScore(patientMessage: string, macro: Macro): { score: numbe
   // ===========================================================================
 
   // --- CHARGE DATE QUESTIONS ---
-  if (asksAboutCharge && !asksAboutRefill) {
+  if (asksAboutCharge && !asksAboutRefill && !asksAboutDoubleCharge) {
     if (/charge\s*alignment/i.test(titleClean)) {
       score += 10.0;
       reasons.push("Charge Alignment macro (exact match for charge date)");
@@ -457,6 +459,23 @@ function getRelevanceScore(patientMessage: string, macro: Macro): { score: numbe
     if (/cancel/i.test(titleClean)) { score -= 5.0; reasons.push("Cancel irrelevant to charge date"); }
     if (/refund/i.test(titleClean)) { score -= 4.0; reasons.push("Refund irrelevant to charge date"); }
     if (/receipt|itemized/i.test(titleClean)) { score -= 4.0; reasons.push("Receipt irrelevant to charge date"); }
+  }
+
+  // --- DOUBLE CHARGE / "WHY WAS I CHARGED TWICE" ---
+  if (asksAboutDoubleCharge) {
+    if (/charge\s*alignment/i.test(titleClean)) {
+      score += 12.0;
+      reasons.push("Charge Alignment explains payment vs shipment timing");
+    }
+    // Also relevant: refund/billing macros
+    if (/billing|charge|payment/i.test(titleClean) && !/insurance/i.test(titleClean)) {
+      score += 3.0;
+      reasons.push("Billing macro relevant to charge question");
+    }
+    // Penalize unrelated
+    if (/insurance/i.test(titleClean)) { score -= 7.0; reasons.push("Insurance irrelevant to double charge"); }
+    if (/cancel/i.test(titleClean)) { score -= 6.0; reasons.push("Cancel irrelevant to double charge"); }
+    if (/discount/i.test(titleClean)) { score -= 5.0; reasons.push("Discount irrelevant to double charge"); }
   }
 
   // --- INSURANCE QUESTIONS ---
@@ -517,7 +536,27 @@ function getRelevanceScore(patientMessage: string, macro: Macro): { score: numbe
   }
 
   // --- LAB RESULTS QUESTIONS ---
-  if (asksAboutLabs && !asksAboutLabBill) {
+  if (asksAboutLabResults) {
+    // Specific: user wants to VIEW/ACCESS results
+    if (/sharing\s*lab|akute.*lab/i.test(titleClean)) {
+      score += 12.0;
+      reasons.push("Lab results access macro (exact match)");
+    } else if (/akute/i.test(titleClean) && /lab|results|portal/i.test(fullContent)) {
+      score += 10.0;
+      reasons.push("Akute portal (for lab results)");
+    } else if (/lab.*results/i.test(titleClean)) {
+      score += 6.0;
+      reasons.push("Lab results macro");
+    }
+    // Strong penalty for "how long does blood draw take" - wrong answer
+    if (/blood\s*draw.*take|how\s*long.*draw/i.test(titleClean)) { 
+      score -= 12.0; 
+      reasons.push("Blood draw duration != viewing results"); 
+    }
+    if (/insurance/i.test(titleClean)) { score -= 6.0; reasons.push("Insurance irrelevant to lab results"); }
+    if (/cancel/i.test(titleClean)) { score -= 5.0; reasons.push("Cancel irrelevant to lab results"); }
+  } else if (asksAboutLabs && !asksAboutLabBill) {
+    // General lab questions
     if (/lab\s*results|sharing\s*lab/i.test(titleClean)) {
       score += 8.0;
       reasons.push("Lab results macro");
@@ -715,18 +754,18 @@ function getRelevanceScore(patientMessage: string, macro: Macro): { score: numbe
   }
 
   // ===========================================================================
-  // KEYWORD OVERLAP (very low weight to prevent false positives)
+  // KEYWORD OVERLAP (balanced weight)
   // ===========================================================================
   const titleOverlap = msgKeywords.filter((k) => titleKeywords.includes(k));
   if (titleOverlap.length > 0) {
-    score += titleOverlap.length * 0.4;
+    score += titleOverlap.length * 0.8;
     reasons.push(`Title keywords: ${titleOverlap.slice(0, 3).join(", ")}`);
   }
 
   if (!isTitleOnly(macro)) {
     const textOverlap = msgKeywords.filter((k) => textKeywords.includes(k));
     if (textOverlap.length > 0) {
-      score += textOverlap.length * 0.2;
+      score += textOverlap.length * 0.4;
       reasons.push(`Text keywords: ${textOverlap.slice(0, 3).join(", ")}`);
     }
   }
@@ -801,10 +840,19 @@ export function findMacroMatches(patientMessage: string, macros: Macro[], topN =
   matches.sort((a, b) => b.score - a.score);
 
   // Filter by minimum threshold and return top N
-  // With the new precise scoring, exact matches get 8-10 points
-  // Filter out anything below 3.0 to remove weak/spurious matches
-  const minScore = 3.0;
-  return matches.filter((m) => m.score >= minScore).slice(0, topN);
+  // Dynamic threshold: if we have high-scoring matches (>5), be selective
+  // If all scores are low (<5), be more lenient to avoid no results
+  const maxScore = matches.length > 0 ? matches[0].score : 0;
+  const minScore = maxScore >= 5.0 ? 3.0 : 1.5;
+  
+  const filtered = matches.filter((m) => m.score >= minScore).slice(0, topN);
+  
+  // If we got no results but had some matches, return the top one anyway
+  if (filtered.length === 0 && matches.length > 0) {
+    return [matches[0]];
+  }
+  
+  return filtered;
 }
 
 // Clean encoding artifacts
